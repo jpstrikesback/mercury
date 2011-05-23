@@ -1,0 +1,11 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+if [[ -n "$PHP_ERROR_REPORTING" ]]; then
+   echo "$PHP_ERROR_REPORTING"
+else
+    echo "E_ALL & ~E_NOTICE"
+fi
+

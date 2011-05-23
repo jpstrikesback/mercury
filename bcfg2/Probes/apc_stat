@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+if [[ -n "$APC_STAT" ]]; then
+   echo "$APC_STAT"
+else
+    echo "1"
+fi
+

@@ -1,0 +1,9 @@
+<Bundle name='mysql'>
+  <Group name='ubuntu'>
+    <Package name='mysql-client'/>
+    <Package name='mysql-server'/>
+    <Path name='/etc/mysql/my.cnf'/>
+    <BoundService name='mysql' status='on' mode='supervised' type='upstart'/>
+  </Group>
+</Bundle>
+

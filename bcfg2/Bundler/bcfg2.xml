@@ -1,0 +1,9 @@
+<Bundle name='bcfg2'>
+  <Group name='lucid'>
+    <Package name='bcfg2'/>
+    <Package name='bcfg2-server'/>
+    <BoundService name='bcfg2' status='on' mode='manual' type='deb'/>
+    <BoundService name='bcfg2-server' status='on' mode='supervised' type='deb'/>
+  </Group>
+</Bundle>
+

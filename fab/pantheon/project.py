@@ -1,13 +1,11 @@
 import os
+import sys
 import tempfile
 
 import dbtools
-import drupaltools
 import pantheon
-import ygg
 
 from fabric.api import *
-
 
 class BuildTools(object):
     """ Generic Pantheon project installation helper functions.
@@ -17,24 +15,16 @@ class BuildTools(object):
     can use these methods directly or override/expand base processes.
 
     """
-    def __init__(self):
+    def __init__(self, project):
         """ Initialize generic project installation object & helper functions.
         project: the name of the project to be built.
 
         """
-        config = ygg.get_config()
         self.server = pantheon.PantheonServer()
-
-        self.project = str(config.keys()[0])
-        self.config = config[self.project]
-        self.environments = set(self.config['environments'].keys())
+        self.project = project
+        self.environments = self.server.get_environments()
         self.project_path = os.path.join(self.server.webroot, self.project)
-        self.db_password = self.config\
-                ['environments']['live']['mysql']['db_password']
-        self.version = None
-
-    def bcfg2_project(self):
-        local('bcfg2 -vqedb projects', capture=False)
+        self.db_password = self.server.random_string(10)
 
     def remove_project(self):
         """ Remove a project and all related files/configs from the server.
@@ -145,11 +135,11 @@ class BuildTools(object):
         """
         settings_file = os.path.join(site_dir, 'settings.php')
         settings_default = os.path.join(site_dir, 'default.settings.php')
-        settings_pantheon = 'pantheon%s.settings.php' % self.version
-        os.path.join(self.project_path, settings_pantheon)
+        settings_pantheon = os.path.join(site_dir, 'pantheon.settings.php')
 
         # Stomp on changes to default.settings.php - no need to conflict here.
-        local('git --git-dir=/var/git/projects/%s cat-file ' % self.project + \
+        settings_contents = local(
+           'git --git-dir=/var/git/projects/%s cat-file ' % self.project + \
            'blob refs/heads/master:sites/default/default.settings.php > %s' % (
                                                              settings_default))
         # Make sure settings.php exists.
@@ -159,29 +149,18 @@ class BuildTools(object):
         # Comment out $base_url entries.
         local("sed -i 's/^[^#|*]*\$base_url/# $base_url/' %s" % settings_file)
 
-        # Create pantheon.settings.php
-        if not os.path.isfile(os.path.join(self.project_path,
-                                           settings_pantheon)):
-            self.bcfg2_project()
+        # Create pantheon.settings.php and include it from settings.php
+        ps_template = pantheon.get_template('pantheon%s.settings.php' % \
+                                            self.version)
+        ps_dict = {'project': self.project,
+                   'vhost_root': self.server.vhost_dir}
+        template = pantheon.build_template(ps_template, ps_dict)
+        with open(settings_pantheon, 'w') as f:
+            f.write(template)
 
-        # Import needs a valid settings file in the tmp directory
-        if hasattr(self, 'working_dir'):
-            tmp_file_dir = os.path.abspath(os.path.join(self.working_dir, '..'))
-            local("cp %s %s" %
-                  (os.path.join(self.project_path, settings_pantheon),
-                   tmp_file_dir))
-            vhost_file = '/etc/apache2/sites-available/%s_dev' % self.project
-            local("sed -i -e 's|($vhost_file)|(\"%s\")|' %s/%s" %
-                  (vhost_file, tmp_file_dir, settings_pantheon))
-
-        # Include pantheon.settings.php at the end of settings.php
         with open(os.path.join(site_dir, 'settings.php'), 'a') as f:
-            f.write("""
-/* Added by Pantheon */
-if (file_exists('../pantheon%s.settings.php')) {
-    include_once '../pantheon%s.settings.php';
-}
-""" % (self.version, self.version))
+            f.write('\n/* Added by Pantheon */\n')
+            f.write("include 'pantheon.settings.php';\n")
 
     def setup_drush_alias(self):
         """ Create drush aliases for each environment in a project.
@@ -252,8 +231,6 @@ if (file_exists('../pantheon%s.settings.php')) {
         """
         with cd(self.working_dir):
             local('git checkout %s' % self.project)
-            # Set up .gitignore
-            pantheon.copy_template('git.ignore', os.path.join(self.working_dir, '.gitignore'))
             local('git add -A .')
             local("git commit --author=\"%s\" -m 'Initialize Project: %s'" % (
                                                    self.author, self.project))
@@ -375,21 +352,8 @@ if (file_exists('../pantheon%s.settings.php')) {
                 local('chmod %s settings.php' % settings_perms)
                 local('chown %s:%s settings.php' % (settings_owner,
                                                     settings_group))
-                # TODO: New sites will not have a pantheon.settings.php in their
-                # repos. However, existing backups will, and if the settings
-                # file exists, we need it to have correct permissions.
-                if os.path.exists(os.path.join(site_dir,
-                                               'pantheon.settings.php')):
-                    local('chmod 440 pantheon.settings.php')
-                    local('chown %s:%s pantheon.settings.php' % (owner,
-                                                       settings_group))
-        if not self.version:
-            self.version = drupaltools.get_drupal_version('%s/dev' %
-                                                          self.project_path)[0]
-        with cd(self.project_path):
-            # pantheon.settings.php
-            local('chmod 440 pantheon%s.settings.php' % self.version)
-            local('chown %s:%s pantheon%s.settings.php' % (owner,
-                                                           settings_group,
-                                                           self.version))
+                # pantheon.settings.php
+                local('chmod 440 pantheon.settings.php')
+                local('chown %s:%s pantheon.settings.php' % (owner,
+                                                             settings_group))
 

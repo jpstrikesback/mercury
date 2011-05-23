@@ -1,0 +1,13 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+RAM=`grep MemTotal /proc/meminfo | sed 's/[^0-9]*//g'`
+
+if [[ -n "$TOMCAT_MEMORY" ]]; then
+   echo "$TOMCAT_MEMORY"
+else
+    echo "96"
+fi
+

@@ -1,0 +1,15 @@
+<Bundle name='varnish'>
+  <Group name='ubuntu'>
+    <Package name='varnish'/>
+    <Package name='libvarnish1'/>
+
+    <Path name='/etc/varnish/default.vcl'/>
+    <Path name='/etc/default/varnish'/>
+
+    <BoundPath type='directory' name='/var/lib/varnish/pressflow' owner='varnish' group='varnish' perms='0755'/>
+
+    <BoundService name='varnish' status='on' mode='supervised' type='deb'/>
+    <BoundService name='varnishlog' status='on' mode='manual' type='deb'/>
+    <BoundService name='varnishncsa' status='on' mode='manual' type='deb'/>
+  </Group>
+</Bundle>

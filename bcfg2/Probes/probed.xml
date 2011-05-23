@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Probed>
+  <Client name="localhost">
+    <Probe name="mysql_max_connections" value="10"/>
+    <Probe name="apc_num_files_hint" value="1000"/>
+    <Probe name="innodb_log_file_size" value="1073741824"/>
+    <Probe name="apc_stat" value="1"/>
+    <Probe name="varnish_vcl_fetch" value=""/>
+    <Probe name="groups" value=""/>
+    <Probe name="apache_maxclients" value="5"/>
+    <Probe name="tomcat_max_threads" value="3"/>
+    <Probe name="php_upload_max_filesize" value="8"/>
+    <Probe name="tomcat_memory" value="96"/>
+    <Probe name="php_memory" value="96"/>
+    <Probe name="memcached_memory" value="32"/>
+    <Probe name="innodb_buffer_pool_size" value="128"/>
+    <Probe name="varnish_vcl_hash" value=""/>
+    <Probe name="varnish_memory" value="32"/>
+    <Probe name="php_post_max_size" value="8"/>
+    <Probe name="varnish_vcl_error" value=""/>
+    <Probe name="apc_memory" value="96"/>
+    <Probe name="varnish_vcl_deliver" value=""/>
+    <Probe name="php_error_reporting" value="E_ALL &amp; ~E_NOTICE"/>
+    <Probe name="key_buffer_size" value="4"/>
+    <Probe name="varnish_vcl_recv" value=""/>
+    <Group name="deb"/>
+    <Group name="lucid"/>
+    <Group name="ubuntu"/>
+    <Group name="amd64"/>
+  </Client>
+</Probed>

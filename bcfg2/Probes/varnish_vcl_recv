@@ -1,0 +1,8 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+if [[ -n "$VARNISH_VCL_RECV" ]]; then
+   echo "$VARNISH_VCL_RECV"
+fi

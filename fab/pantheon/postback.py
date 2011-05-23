@@ -1,61 +1,9 @@
 import cPickle
-import httplib
-import json
 import os
 import sys
-import urllib2
-import uuid
-import jenkinstools
 
+import pantheon
 from fabric.api import local
-
-def postback(cargo, command='atlas'):
-    """Send data back to Atlas.
-    cargo: dict of data to send.
-    task_id: uuid of requesting job.
-    command: Prometheus command.
-
-    """
-    print "DEBUG: postback.postback"
-    try:
-        task_id = cargo.get('build_parameters').get('task_id')
-    except Exception:
-        task_id = None
-
-    return _send_response({'id': str(uuid.uuid4()),
-                           'command':command,
-                           'method':'POST',
-                           'response': cargo,
-                           'response_to': {'task_id': task_id}})
-
-def get_job_and_id():
-    """Return the job name and build number.
-    These are set (and retrieved) as environmental variables during Jenkins jobs.
-
-    """
-    print "DEBUG: postback.get_job_and_id"
-    return (os.environ.get('JOB_NAME'), os.environ.get('BUILD_NUMBER'))
-
-def get_build_info(job_name, build_number, check_previous):
-    """Return a dictionary of Jenkins build information.
-    job_name: jenkins job name.
-    build_number: jenkins build number.
-    check_previous: bool. If we should return data only if there is a change in
-                          build status.
-
-    """
-    print "DEBUG: postback.get_build_info"
-    data = _get_jenkins_data(job_name, build_number)
-
-    # If we care, determine if status changed from previous run.
-    if check_previous and not _status_changed(job_name, data):
-        return None
-
-    # Either we dont care if status changed, or there were changes.
-    return {'job_name': job_name,
-            'build_number': build_number,
-            'build_status': data.get('result'),
-            'build_parameters': _get_build_parameters(data)}
 
 def get_build_data():
     """ Return a dict of build data, messages, warnings, errors.
@@ -66,7 +14,7 @@ def get_build_data():
     data['build_warnings'] = list()
     data['build_error'] = ''
 
-    build_data_path = os.path.join(jenkinstools.get_workspace(), 'build_data.txt')
+    build_data_path = '/etc/pantheon/build_data.txt'
     if os.path.isfile(build_data_path):
         with open(build_data_path, 'r') as f:
             while True:
@@ -98,7 +46,7 @@ def write_build_data(response_type, data):
     data: Info to be written to file for later retrieval in Atlas postback.
 
     """
-    build_data_path = os.path.join(jenkinstools.get_workspace(), 'build_data.txt')
+    build_data_path = '/etc/pantheon/build_data.txt'
 
     with open(build_data_path, 'a') as f:
         cPickle.dump({response_type:data}, f)
@@ -128,71 +76,4 @@ def build_error(message):
     print "\nEncountered a build error. Error message:"
     print message + '\n\n'
     sys.exit(0)
-
-def _status_changed(job_name, data):
-    """Returns True if the build status changed from the previous run.
-    Will also return true if there is no previous status.
-    job_name: jenkins job name.
-    data: dict from jenkinss python api for the current build.
-
-    """
-    print "DEBUG: postback._status_changed"
-    prev_build_number = int(data.get('number')) - 1
-    # Valid previous build exists.
-    if prev_build_number > 0:
-        result = data.get('result')
-        prev_result = _get_jenkins_data(job_name, prev_build_number).get('result')
-        return result != prev_result
-    else:
-        # First run, status has changed from "none" to something.
-        return True
-
-def _get_build_parameters(data):
-    """Return the build parameters from Jenkins build API data.
-
-    """
-    print "DEBUG: postback._get_build_parameters"
-    ret = dict()
-    parameters = data.get('actions')[0].get('parameters')
-    try:
-      for param in parameters:
-          ret[param['name']] = param['value']
-    except Exception:
-      print "WARNING: No build parameters found.";
-
-    return ret
-
-def _get_jenkins_data(job, build_id):
-    """Return API data for a Jenkins build.
-
-    """
-    print "DEBUG: postback._get_jenkins_data"
-    try:
-        req = urllib2.Request('http://localhost:8090/job/%s/%s/api/python' % (
-                                                               job, build_id))
-        return eval(urllib2.urlopen(req).read())
-    except urllib2.URLError:
-        return None
-
-def _send_response(responsedict):
-    """POST data to Prometheus.
-    responsedict: fully formed dict of response data.
-
-    """
-    print "DEBUG: postback._send_response"
-    host = 'jobs.getpantheon.com'
-    certificate = '/etc/pantheon/system.pem'
-    celery = 'atlas.notify'
-    headers = {'Content-Type': 'application/json'}
-
-    connection = httplib.HTTPSConnection(host,
-                                         key_file = certificate,
-                                         cert_file = certificate)
-
-    connection.request('POST', '/%s/' % celery,
-                       json.dumps(responsedict),
-                       headers)
-
-    response = connection.getresponse()
-    return response
 

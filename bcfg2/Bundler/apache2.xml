@@ -1,0 +1,27 @@
+<Bundle name='apache2'>
+  <Group name='ubuntu'>
+
+    <!-- Packages -->
+    <Package name='apache2'/>
+    <Package name='apache2-mpm-prefork'/>
+    <Package name='libaprutil1-dbd-sqlite3'/>
+    <Package name='libapache2-mod-php5'/>
+    <Package name='libapache2-mod-rpaf'/>
+
+    <!-- Templates -->
+    <Path name='/etc/apache2/sites-available/phpmyadmin'/>
+    <Path name='/etc/apache2/ports.conf'/>
+    <Path name='/etc/apache2/conf.d/mercury'/>
+    <Path name='/etc/apache2/apache2.conf'/>
+
+    <!-- Directories & Symlinks -->
+    <BoundPath type='symlink' name='/etc/apache2/sites-enabled/phpmyadmin' to='/etc/apache2/sites-available/phpmyadmin'/>
+    <BoundPath type='symlink' name='/etc/apache2/mods-enabled/expires.load' to='/etc/apache2/mods-available/expires.load'/>
+    <BoundPath type='symlink' name='/etc/apache2/mods-enabled/rewrite.load' to='/etc/apache2/mods-available/rewrite.load'/>
+    <BoundPath type='directory' name='/etc/apache2/sites-available' owner='root' group='www-data' perms='0750'/>
+
+    <!-- Services -->
+    <BoundService name='apache2' status='on' mode='supervised' type='deb'/>
+
+  </Group>
+</Bundle>

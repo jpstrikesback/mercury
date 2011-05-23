@@ -1,0 +1,4 @@
+<Clients version="3.0">
+  <Client profile="rackspace-ubuntu-lucid" name="localhost"/>
+  <Client profile="rackspace-lucid" name="localhost"/>
+</Clients>

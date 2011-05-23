@@ -6,22 +6,16 @@ import drupaltools
 import pantheon
 import project
 import postback
-import logger
 
 from fabric.api import *
-#TODO: Improve the logging messages
 
 def get_drupal_root(base):
     """Return the location of drupal root within 'base' dir tree.
 
     """
-    log = logger.logging.getLogger('pantheon.onramp.drupalroot')
     for root, dirs, files in os.walk(base, topdown=True):
         if ('index.php' in files) and ('sites' in dirs):
-            log.info('Drupal root found.')
             return root
-    log.error('Cannot locate drupal install in archive.')
-    postback.build_error('Cannot locate drupal install in archive.')
 
 def download(url):
     if url.startswith('file:///'):
@@ -70,7 +64,6 @@ class ImportTools(project.BuildTools):
         processing directory for import process.
 
         """
-        self.log = logger.logging.getLogger('pantheon.onramp.ImportTools')
         super(ImportTools, self).__init__()
 
         self.author = 'Jenkins User <jenkins@pantheon>'
@@ -174,9 +167,7 @@ class ImportTools(project.BuildTools):
         else:
             modules = ['apachesolr-7.x-1.0-beta3', 'memcache-7.x-1.0-beta3']
         with cd(temp_dir):
-            with settings(warn_only=True):
-                result = local("drush dl -by %s" % ' '.join(modules))
-            pantheon.log_drush_backend(result, self.log)
+            local("drush dl -y %s" % ' '.join(modules))
             local("cp -R * %s" % module_dir)
         local("rm -rf " + temp_dir)
         #TODO: Handle pantheon required modules existing in sites/default/modules.
@@ -205,22 +196,18 @@ class ImportTools(project.BuildTools):
             if os.path.islink(file_dest):
                 local('rm -f %s' % file_dest)
                 msg = 'File path was broken symlink. Site files may be missing'
-                self.log.info(msg)
                 postback.build_warning(msg)
             local('mkdir -p %s' % file_dest)
 
         # if files are not located in default location, move them there.
-        if (file_path) and (file_location != 'sites/%s/files' % self.site):
+        if (file_path) and (file_location != 'sites/default/files'):
             with settings(warn_only=True):
                 local('cp -R %s/* %s' % (file_path, file_dest))
             local('rm -rf %s' % file_path)
             path = os.path.split(file_path)
             # Symlink from former location to sites/default/files
             if not os.path.islink(path[0]):
-                # If parent folder for files path doesn't exist, create it.
-                if not os.path.exists(path[0]):
-                    local('mkdir -p %s' % path[0])
-                rel_path = os.path.relpath(file_dest, path[0])
+                rel_path = os.path.relpath(file_dest, os.path.split(file_path)[0])
                 local('ln -s %s %s' % (rel_path, file_path))
 
         # Change paths in the files table
@@ -258,32 +245,27 @@ class ImportTools(project.BuildTools):
         if self.version == 6:
             required_modules = ['apachesolr',
                                 'apachesolr_search',
+                                'cookie_cache_bypass',
                                 'locale',
-                                'pantheon',
                                 'syslog',
                                 'varnish']
         elif self.version == 7:
             required_modules = ['apachesolr',
-                                'apachesolr_search',
-                                'syslog']
+                                'apachesolr_search']
 
         # Enable modules.
         with settings(hide('warnings'), warn_only=True):
             for module in required_modules:
-                result = local('drush -by @working_dir en %s' % module)
-                pantheon.log_drush_backend(result, self.log)
+                result = local('drush -y @working_dir en %s' % module)
                 if result.failed:
                     # If importing vanilla drupal, this module wont exist.
                     if module != 'cookie_cache_bypass':
                         message = 'Could not enable %s module.' % module
-                        self.log.warning('%s\n%s' % (message, result.stderr))
                         postback.build_warning(message)
                         print message
                         print '\n%s module could not be enabled. ' % module + \
                               'Error Message:'
                         print '\n%s' % result.stderr
-                else:
-                    self.log.info('%s enabled.' % module)
 
         if self.version == 6:
             drupal_vars = {
@@ -320,27 +302,22 @@ class ImportTools(project.BuildTools):
             db.vset(key, value)
 
         # apachesolr module for drupal 7 stores config in db.
-        # TODO: use drush/drupal api to do this work.
         if self.version == 7:
             db.execute('TRUNCATE apachesolr_server')
             for env in self.environments:
-                config = self.config['environments'][env]['solr']
-                host = config['solr_host']
-                port = config['solr_port']
-                sid = config['apachesolr_default_server']
-                name = '%s %s' % (self.project, env)
-                path = config['solr_path']
-
+                config = self.config['environments']['env']['solr'];
                 db.execute('INSERT INTO apachesolr_server ' + \
                     '(host, port, server_id, name, path) VALUES ' + \
-                    '("%s", "%s", "%s", "%s", "%s")' % \
-                           (host, port, sid, name, path))
+                    '("%s", "%s", ' + \
+                      '"%s", "Pantheon %s", "/%s")' % \
+                      (config['solr_host'], config['solr_port'], \
+                      config['apachesolr_default_server'], env, \
+                      config['solr_path']))
         db.close()
 
         # D7: apachesolr config link will not display until cache cleared?
         with settings(warn_only=True):
-            result = local('drush @working_dir -y cc all')
-            pantheon.log_drush_backend(result, self.log)
+            local('drush @working_dir -y cc all')
 
        # Remove temporary working_dir drush alias.
         alias_file = '/opt/drush/aliases/working_dir.alias.drushrc.php'
@@ -381,7 +358,6 @@ class ImportTools(project.BuildTools):
 
         """
         local('rm -rf %s' % self.working_dir)
-        local('rm -rf %s' % self.build_location)
 
     def _get_site_name(self):
         """Return the name of the site to be imported.
@@ -399,14 +375,11 @@ class ImportTools(project.BuildTools):
         if site_count > 1:
             err = 'Multiple settings.php files were found:\n' + \
                   '\n'.join(sites)
-            self.log.error(err)
             postback.build_error(err)
         elif site_count == 0:
             err = 'Error: No settings.php files were found.'
-            self.log.error(err)
             postback.build_error(err)
         else:
-            self.log.info('Site found.')
             return sites[0]
 
     def _get_database_dump(self):
@@ -421,15 +394,12 @@ class ImportTools(project.BuildTools):
         count = len(sql_dump)
         if count == 0:
             err = 'No database dump files were found (*.mysql or *.sql)'
-            self.log.error(err)
             postback.build_error(err)
         elif count > 1:
             err = 'Multiple database dump files were found:\n' + \
                   '\n'.join(sql_dump)
-            self.log.error(err)
             postback.build_error(err)
         else:
-            self.log.info('MYSQL Dump found at %s' % sql_dump[0])
             return sql_dump[0]
 
     def _get_drupal_version_info(self):
@@ -440,10 +410,7 @@ class ImportTools(project.BuildTools):
         version = drupaltools.get_drupal_version(self.working_dir)
         if not version:
             err = 'Error: This does not appear to be a Drupal 6 site.'
-            self.log.error(err)
             postback.build_error(err)
-        else:
-            self.log.info('Drupal version %s found.' % (version))
 
         platform = drupaltools.get_drupal_platform(self.working_dir)
 

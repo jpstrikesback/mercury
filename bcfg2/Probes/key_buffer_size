@@ -1,0 +1,20 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+RAM=`grep MemTotal /proc/meminfo | sed 's/[^0-9]*//g'`
+
+if [[ -n "$KEY_BUFFER_SIZE" ]]; then
+   echo "$KEY_BUFFER_SIZE"
+elif (($RAM>=4000000)); then
+    echo "32"
+elif (($RAM>=2000000)); then
+    echo "16"
+elif (($RAM>=1000000)); then
+    echo "8"
+else
+    echo "4"
+fi
+
+

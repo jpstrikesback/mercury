@@ -1,9 +1,9 @@
+import traceback
 
 from pantheon import onramp
 from pantheon import pantheon
 from pantheon import restore
 from pantheon import status
-from pantheon import logger
 
 def onramp_site(project='pantheon', url=None, profile=None, **kw):
     """Create a new Drupal installation.
@@ -12,22 +12,12 @@ def onramp_site(project='pantheon', url=None, profile=None, **kw):
     **kw: Optional dictionary of values to process on installation.
 
     """
-    #TODO: Move logging into pantheon libraries for better coverage.
-    log = logger.logging.getLogger('pantheon.onramp.site')
-    log = logger.logging.LoggerAdapter(log,
-                                       {"project": project})
+
     archive = onramp.download(url)
     location = onramp.extract(archive)
     handler = _get_handler(profile, project, location)
 
-    log.info('Initiated site build.')
-    try:
-        handler.build(location)
-    except:
-        log.exception('Site build encountered an exception.')
-        raise
-    else:
-        log.info('Site build was successful.')
+    handler.build(location)
 
 def _get_handler(profile, project, location):
     """Return instantiated profile object.
@@ -53,7 +43,6 @@ class _ImportProfile(onramp.ImportTools):
     """
     def build(self, location):
 
-        self.build_location = location
         # Parse the extracted archive.
         self.parse_archive(location)
 

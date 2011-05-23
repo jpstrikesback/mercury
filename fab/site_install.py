@@ -1,9 +1,7 @@
+import update
 from pantheon import install
-from pantheon import status
-from pantheon import logger
 
-#TODO: Move logging into pantheon libraries for better coverage.
-def install_site(project='pantheon', profile='pantheon', version=6, **kw):
+def install_site(project='pantheon', profile='pantheon', version=6):
     """ Create a new Drupal installation.
     project: Installation namespace.
     profile: The installation type (e.g. pantheon/openatrium)
@@ -14,18 +12,8 @@ def install_site(project='pantheon', profile='pantheon', version=6, **kw):
             'project': project,
             'version': version}
 
-    log = logger.logging.getLogger('pantheon.install.site')
-    log = logger.logging.LoggerAdapter(log, data)
-    log.info('Site installation of %s using %s version %s initiated.' % 
-             (project, profile, version))
-    try:
-        handler = _get_profile_handler(**data)
-        handler.build(**data)
-    except:
-        log.exception('Site installation was unsuccessful')
-        raise
-    else:
-        log.info('Site installation successful')
+    handler = _get_profile_handler(**data)
+    handler.build(**data)
 
 class _PantheonProfile(install.InstallTools):
     """ Default Pantheon Installation Profile.

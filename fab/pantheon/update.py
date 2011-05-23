@@ -5,7 +5,6 @@ import dbtools
 import pantheon
 import project
 import postback
-import logger
 
 from fabric.api import *
 
@@ -17,10 +16,7 @@ class Updater(project.BuildTools):
         self.project_env = environment
         self.author = 'Jenkins User <jenkins@pantheon>'
         self.env_path = os.path.join(self.project_path, environment)
-        self.log = logger.logging.getLogger('pantheon.update.Updater')
-        self.log = logger.logging.LoggerAdapter(self.log, 
-                                                {"project": project,
-                                                 "environment": environment})
+
 
     def core_update(self, keep=None):
         """Update core in dev environment.
@@ -32,7 +28,6 @@ class Updater(project.BuildTools):
               None: Reset to ORIG_HEAD if merge fails.
 
         """
-        self.log.info('Initialized core update.')
         # Update pantheon core master branch
         with cd('/var/git/projects/%s' % self.project):
             local('git fetch origin master')
@@ -44,197 +39,112 @@ class Updater(project.BuildTools):
             with settings(warn_only=True):
                 # Merge latest pressflow.
                 merge = local('git pull origin master')
-                self.log.info(merge)
+                print merge
 
             # Handle failed merges
             if merge.failed:
-                self.log.error('Merge failed.')
+                print 'Merge failed.'
                 if keep == 'ours':
-                    self.log.info('Re-merging - keeping local changes on ' \
-                                  'conflict.')
+                    print 'Re-merging - keeping local changes on conflict.'
                     local('git reset --hard ORIG_HEAD')
                     merge = local('git pull -s recursive -Xours origin master')
-                    self.log.info(merge)
+                    print merge
                     local('git push')
                 elif keep == 'theirs':
-                    self.log.info('Re-merging - keeping upstream changes on ' \
-                                  'conflict.')
+                    print 'Re-merging - keeping upstream changes on conflict.'
                     local('git reset --hard ORIG_HEAD')
-                    merge = local('git pull -s recursive -Xtheirs origin ' \
-                                  'master')
-                    self.log.info(merge)
+                    merge = local('git pull -s recursive -Xtheirs origin master')
+                    print merge
                     local('git push')
                 elif keep == 'force':
-                    self.log.info('Leaving merge conflicts. Please manually ' \
-                                  'resolve.')
+                    print 'Leaving merge conflicts. Please manually resolve.'
                 else:
                     #TODO: How do we want to report this back to user?
-                    self.log.info('Rolling back failed changes.')
+                    print 'Rolling back failed changes.'
                     local('git reset --hard ORIG_HEAD')
                     return {'merge':'fail','log':merge}
             # Successful merge.
             else:
                 local('git push')
-                self.log.info('Merge successful.')
-        self.log.info('Core update successful.')
         return {'merge':'success','log':merge}
 
 
     def code_update(self, tag, message):
-        self.log.info('Initialized code update.')
-        try:
-            # Update code in 'dev' (Only used when updating from remote push)
-            if self.project_env == 'dev':
-                with cd(self.env_path):
-                    local('git pull')
+        # Update code in 'dev' (Only used when updating from remote push)
+        if self.project_env == 'dev':
+            with cd(self.env_path):
+                local('git pull')
 
-            # Update code in 'test' (commit & tag in 'dev', fetch in 'test')
-            elif self.project_env == 'test':
-                self.code_commit(message)
-                self._tag_code(tag, message)
-                self._fetch_and_reset(tag)
+        # Update code in 'test' (commit & tag in 'dev', fetch in 'test')
+        elif self.project_env == 'test':
+            self.code_commit(message)
+            self._tag_code(tag, message)
+            self._fetch_and_reset(tag)
 
-            # Update code in 'live' (get latest tag from 'test', fetch in 
-            # 'live')
-            elif self.project_env == 'live':
-                with cd(os.path.join(self.project_path, 'test')):
-                    tag = local('git describe --tags --abbrev=0').rstrip('\n')
-                self._fetch_and_reset(tag)
-        except:
-            self.log.exception('Code update encountered a fatal error.')
-            raise
-        else:
-            self.log.info('Code update successful.')
-        self.log.info('Gracefully restarting apache.')
+        # Update code in 'live' (get latest tag from 'test', fetch in 'live')
+        elif self.project_env == 'live':
+            with cd(os.path.join(self.project_path, 'test')):
+                tag = local('git describe --tags').rstrip('\n')
+            self._fetch_and_reset(tag)
         local("apache2ctl -k graceful", capture=False)
 
     def code_commit(self, message):
-        try:
-            with cd(os.path.join(self.project_path, 'dev')):
-                local('git checkout %s' % self.project)
-                local('git add -A .')
-                with settings(warn_only=True):
-                    local('git commit --author="%s" -m "%s"' % (
-                          self.author, message), capture=False)
-                local('git push')
-        except:
-            self.log.exception('Code commit encountered a fatal error.')
-            raise
-        else:
-            self.log.info('Code commit successful.')
+        with cd(os.path.join(self.project_path, 'dev')):
+            local('git checkout %s' % self.project)
+            local('git add -A .')
+            with settings(warn_only=True):
+                local('git commit --author="%s" -m "%s"' % (
+                       self.author, message), capture=False)
+            local('git push')
 
     def data_update(self, source_env):
-        self.log.info('Initialized data sync')
-        try:
-            tempdir = tempfile.mkdtemp()
-            export = dbtools.export_data(self, source_env, tempdir)
-            dbtools.import_data(self.project, self.project_env, export)
-            local('rm -rf %s' % tempdir)
-        except:
-            self.log.exception('Data sync encountered a fatal error.')
-            raise
-        else:
-            self.log.info('Data sync successful.')
+        tempdir = tempfile.mkdtemp()
+        export = dbtools.export_data(self, source_env, tempdir)
+        dbtools.import_data(self.project, self.project_env, export)
+        local('rm -rf %s' % tempdir)
 
     def files_update(self, source_env):
-        self.log.info('Initialized file sync')
-        try:
-            source = os.path.join(self.project_path,
-                                  '%s/sites/default/files' % source_env)
-            dest = os.path.join(self.project_path,
-                                '%s/sites/default/' % self.project_env)
-            local('rsync -av --delete %s %s' % (source, dest))
-        except:
-            self.log.exception('File sync encountered a fatal error.')
-            raise
-        else:
-            self.log.info('File sync successful.')
+        source = os.path.join(self.project_path,
+                              '%s/sites/default/files' % source_env)
+        dest = os.path.join(self.project_path,
+                            '%s/sites/default/' % self.project_env)
+        local('rsync -av --delete %s %s' % (source, dest))
 
     def drupal_updatedb(self):
-        self.log.info('Initiated Updatedb.')
-        try:
-            alias = '@%s_%s' % (self.project, self.project_env)
-            with settings(warn_only=True):
-                result = local('drush %s -by updb' % alias)
-        except:
-            self.log.exception('Updatedb encountered a fatal error.')
-            raise
-        else:
-            self.log.info('Updatedb complete.')
-            pantheon.log_drush_backend(result, self.log)
-
-    def run_cron(self):
-        self.log.info('Initialized cron.')
-        try:
-            with settings(warn_only=True):
-                result = local("drush @%s_%s -b cron" % 
-                               (self.project, self.project_env))
-        except:
-            self.log.exception('Cron encountered a fatal error.')
-            raise
-        else:
-            pantheon.log_drush_backend(result, self.log)
-
-    def solr_reindex(self):
-        self.log.info('Initialized solr-reindex.')
-        try:
-            with settings(warn_only=True):
-                result = local("drush @%s_%s -b solr-reindex" % 
-                               (self.project, self.project_env))
-        except:
-            self.log.exception('Solr-reindex encountered a fatal error.')
-            raise
-        else:
-            pantheon.log_drush_backend(result, self.log)
+        alias = '@%s_%s' % (self.project, self.project_env)
+        with settings(warn_only=True):
+            result = local('drush %s -by updb' % alias)
+        json_out = pantheon.parse_drush_output(result)
+        msgs = '\n'.join(['[%s] %s' % (o['type'], o['message'])
+                        for o in json_out['log']])
+        if result.failed:
+            postback.build_warning("Warning: UpdateDB encountered an error.")
+            print("\n=== UpdateDB Debug Output ===\n%s\n" % msgs)
 
     def permissions_update(self):
-        self.log.info('Initialized permissions update.')
-        try:
-            self.setup_permissions('update', self.project_env)
-        except Exception as e:
-            self.log.exception('Permissions update encountered a fatal error.')
-            raise
-        else:
-            self.log.info('Permissions update successful.')
+        self.setup_permissions('update', self.project_env)
 
     def run_command(self, command):
-        try:
-            with cd(self.env_path):
-                local(command, capture=False)
-        except:
-            self.log.exception('Encountered a fatal error while running %s' %
-                               command)
-            raise
+        with cd(self.env_path):
+            local(command, capture=False)
 
     def test_tag(self, tag):
-        try:
-            #test of existing tag
-            with cd(self.env_path):
-                with settings(warn_only=True):
-                    count = local('git tag | grep -c ' + tag)
-                    if count.strip() != "0":
-                        abort('warning: tag ' + tag + ' already exists!')
-        except:
-            self.log.exception('Encountered a fatal error while tagging code.')
-            raise
+        #test of existing tag
+        with cd(self.env_path):
+            with settings(warn_only=True):
+                count = local('git tag | grep -c ' + tag)
+                if count.strip() != "0":
+                    abort('warning: tag ' + tag + ' already exists!')
 
     def _tag_code(self, tag, message):
-        try:
-            with cd(os.path.join(self.project_path, 'dev')):
-                local('git checkout %s' % self.project)
-                local('git tag "%s" -m "%s"' % (tag, message), capture=False)
-                local('git push --tags')
-        except:
-            self.log.exception('Encountered a fatal error while tagging code.')
-            raise
+        with cd(os.path.join(self.project_path, 'dev')):
+            local('git checkout %s' % self.project)
+            local('git tag "%s" -m "%s"' % (tag, message), capture=False)
+            local('git push --tags')
 
     def _fetch_and_reset(self, tag):
-        try:
-            with cd(os.path.join(self.project_path, self.project_env)):
-                local('git checkout %s' % self.project)
-                local('git fetch -t')
-                local('git reset --hard "%s"' % tag)
-        except:
-            self.log.exception('Fetch and reset encountered a fatal error.')
-            raise
+        with cd(os.path.join(self.project_path, self.project_env)):
+            local('git checkout %s' % self.project)
+            local('git fetch -t')
+            local('git reset --hard "%s"' % tag)
 

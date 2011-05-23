@@ -1,0 +1,44 @@
+<Bundle name='rackspace-lucid-services'>
+  <Group name='lucid'>
+    <BoundService name='killprocs' status='off' mode='manual' type='deb'/>
+    <BoundService name='ondemand' status='off' mode='manual' type='deb'/>
+    <BoundService name='rsync' status='off' mode='manual' type='deb'/>
+    <BoundService name='single' status='off' mode='manual' type='deb'/>
+
+    <BoundService name='console-setup' status='off' mode='manual' type='upstart'/>
+    <BoundService name='control-alt-delete' status='off' mode='manual' type='upstart'/>
+    <BoundService name='cron' status='on' mode='supervised' type='upstart'/>
+    <BoundService name='dmesg' status='off' mode='manual' type='upstart'/>
+    <BoundService name='failsafe-x' status='off' mode='manual' type='upstart'/>
+    <BoundService name='hostname' status='off' mode='manual' type='upstart'/>
+    <BoundService name='hwclock' status='off' mode='manual' type='upstart'/>
+    <BoundService name='hwclock-save' status='off' mode='manual' type='upstart'/>
+    <BoundService name='module-init-tools' status='off' mode='manual' type='upstart'/>
+    <BoundService name='mountall' status='off' mode='manual' type='upstart'/>
+    <BoundService name='mountall-net' status='off' mode='manual' type='upstart'/>
+    <BoundService name='mountall-reboot' status='off' mode='manual' type='upstart'/>
+    <BoundService name='mountall-shell' status='off' mode='manual' type='upstart'/>
+    <BoundService name='mounted-dev' status='off' mode='manual' type='upstart'/>
+    <BoundService name='mounted-tmp' status='off' mode='manual' type='upstart'/>
+    <BoundService name='mounted-varrun' status='off' mode='manual' type='upstart'/>
+    <BoundService name='networking' status='off' mode='manual' type='upstart'/>
+    <BoundService name='plymouth' status='off' mode='manual' type='upstart'/>
+    <BoundService name='plymouth-log' status='off' mode='manual' type='upstart'/>
+    <BoundService name='plymouth-splash' status='off' mode='manual' type='upstart'/>
+    <BoundService name='plymouth-stop' status='off' mode='manual' type='upstart'/>
+    <BoundService name='procps' status='off' mode='manual' type='upstart'/>
+    <BoundService name='rc' status='off' mode='manual' type='upstart'/>
+    <BoundService name='rc-sysinit' status='off' mode='manual' type='upstart'/>
+    <BoundService name='rsyslog' status='on' mode='supervised' type='upstart'/>
+    <BoundService name='rcS' status='off' mode='manual' type='upstart'/>
+    <BoundService name='ssh' status='on' mode='supervised' type='upstart'/>
+    <BoundService name='tty1' status='on' mode='supervised' type='upstart'/>
+    <BoundService name='udev' status='on' mode='supervised' type='upstart'/>
+    <BoundService name='udev-finish' status='off' mode='manual' type='upstart'/>
+    <BoundService name='udevmonitor' status='off' mode='manual' type='upstart'/>
+    <BoundService name='udevtrigger' status='off' mode='manual' type='upstart'/>
+    <BoundService name='upstart-udev-bridge' status='on' mode='default' type='upstart'/>
+    <BoundService name='ureadahead' status='off' mode='manual' type='upstart'/>
+    <BoundService name='ureadahead-other' status='off' mode='manual' type='upstart'/>
+  </Group>
+</Bundle>

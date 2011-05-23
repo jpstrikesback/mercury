@@ -1,0 +1,11 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+if [[ -n "$APC_NUM_FILES_HINT" ]]; then
+   echo "$APC_NUM_FILES_HINT"
+else
+    echo "1000"
+fi
+

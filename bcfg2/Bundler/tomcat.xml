@@ -1,0 +1,15 @@
+<Bundle name='tomcat'>
+  <Group name='ubuntu'>
+    <Package name='tomcat6'/>
+    <Package name='default-jre-headless'/>
+    <Path name='/etc/default/tomcat6'/>
+    <Path name='/etc/tomcat6/server.xml'/>
+    <BoundService name='tomcat6' status='on' mode='type' type='deb'/>
+<!--
+    <Package name='tomcat6-common'/>
+    <Package name='default-jre'/>
+    <Package name='icedtea-6-jre-cacao'/>
+    <Package name='openjdk-6-jre-lib'/>
+-->
+  </Group>
+</Bundle>

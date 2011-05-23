@@ -1,0 +1,7 @@
+<Bundle name='memcached'>
+  <Group name='ubuntu'>
+    <Package name='memcached'/>
+    <Path name='/etc/memcached.conf'/>
+    <BoundService name='memcached' status='on' mode='supervised' type='deb'/>
+  </Group>
+</Bundle>

@@ -1,0 +1,7 @@
+<Bundle name='denyhosts'>
+  <Group name='ubuntu'>
+    <Package name='denyhosts'/>
+    <Path name='/etc/denyhosts.conf'/>
+    <BoundService name='denyhosts' status='on' mode='supervised' type='deb'/>
+  </Group>
+</Bundle>

@@ -1,0 +1,13 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+RAM=`grep MemTotal /proc/meminfo | sed 's/[^0-9]*//g'`
+
+if [[ -n "$PHP_UPLOAD_MAX_FILESIZE" ]]; then
+   echo "$PHP_UPLOAD_MAX_FILESIZE"
+else
+    echo "8"
+fi
+

@@ -1,0 +1,23 @@
+<Groups version='3.0'>
+
+  <Group profile='true' public='true' default='true' name='rackspace-lucid'>
+    <Bundle name='rackspace-lucid-packages'/>
+    <Bundle name='rackspace-lucid-services'/>
+    <Bundle name='bcfg2'/>
+    <Bundle name='python'/>
+    <Bundle name='tools'/>
+    <Bundle name='apache2'/>
+    <Bundle name='php'/>
+    <Bundle name='mysql'/>
+    <Bundle name='memcached'/>
+    <Bundle name='postfix'/>
+    <Bundle name='denyhosts'/>
+    <Bundle name='varnish'/>
+    <Bundle name='tomcat'/>
+    <Bundle name='mercury'/>
+    <Bundle name='phpmyadmin'/>
+  </Group>
+
+  <Group name='standard'>
+  </Group>
+</Groups>

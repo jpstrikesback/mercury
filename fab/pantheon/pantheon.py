@@ -1,4 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
 import os
 import random
 import string
@@ -9,9 +8,6 @@ import urllib2
 import zipfile
 import json
 import re
-import logger
-
-import postback
 
 from fabric.api import *
 
@@ -116,28 +112,6 @@ def curl(url, destination):
     """
     local('curl "%s" -o "%s"' % (url, destination))
 
-def jenkins_running():
-    """Check if jenkins is running. Returns True if http code == 200.
-
-    """
-    try:
-        result = urllib2.urlopen('http://127.0.0.1:8090').code
-    except:
-        return False
-    return result == 200
-
-def jenkins_queued():
-    """Returns number of jobs Jenkins currently has in its queue. -1 if unknown.
-
-    """
-    try:
-        result = urllib2.urlopen('http://127.0.0.1:8090/queue/api/python')
-    except:
-        return -1
-    if result.code != 200:
-        return -1
-    return len(eval(result.read()).get('items'))
-
 def get_database_vars(self, env):
     """Helper method that returns database variables for a project/environment.
     project: project name
@@ -150,132 +124,40 @@ def get_database_vars(self, env):
             config['db_password'],
             config['db_name'])
 
-def configure_root_certificate(pki_server):
-    """Helper function that connects to pki.getpantheon.com and configures the
-    root certificate used throughout the infrastructure."""
-
-    # Download and install the root CA.
-    local('curl %s | sudo tee /usr/share/ca-certificates/pantheon.crt' % pki_server)
-    local('echo "pantheon.crt" | sudo tee -a /etc/ca-certificates.conf')
-    #local('cat /etc/ca-certificates.conf | sort | uniq | sudo tee /etc/ca-certificates.conf') # Remove duplicates.
-    local('sudo update-ca-certificates')
-
-def jenkins_restart():
-    local('curl -X POST http://localhost:8090/safeRestart')
-
-def jenkins_quiet():
-    urllib2.urlopen('http://localhost:8090/quietDown')
-
-def parse_drush_backend(drush_backend):
+def parse_drush_output(drush_output):
     """ Return drush backend json as a dictionary.
-    drush_backend: drush backend json output.
+    drush_output: drush backend json output.
     """
     # Create the patern
     pattern = re.compile('DRUSH_BACKEND_OUTPUT_START>>>%s<<<DRUSH_BACKEND_OUTPUT_END' % '(.*)')
 
     # Match the patern, returning None if not found.
-    match = pattern.match(drush_backend)
+    match = pattern.match(drush_output)
 
     if match:
         return json.loads(match.group(1))
 
     return None
 
-def log_drush_backend(data, log=None, context={}):
-    """ Iterate through the log messages and handle them appropriately
-    data: drush backend json output.
-    log: object. the logger object to use for logging.
-    context: a dict containing the project and environment
-    """
-    if not log:
-        log = logger.logging.getLogger('pantheon.pantheon.drush')
-
-    # Drush outputs the drupal root and the command being run in its logs
-    # unforunately they are buried in log messages.
-    data = parse_drush_backend(data)
-    if (data == None) or (data['error_status'] == 1):
-        log.error('Drush command could not be completed successfully.')
-        log.debug(str(data))
-        return None
-    if 'command' not in context:
-        p1 = re.compile('Found command: %s \(commandfile' % '(.*)')
-    no_dupe = set()
-    for entry in data['log']:
-        # message is already used by a records namespace
-        context['drush_message'] = str(entry['message'].encode('utf-8'))
-        del entry['message']
-        if 'command' not in context:
-            m = p1.match(context['drush_message'])
-            if m:
-                context['command'] = m.group(1)
-        if ('command' in context) and (context['drush_message'] not in no_dupe):
-            context = dict(context, **entry)
-
-            if context['type'] in ('error', 'critical', 'failure', 'fatal'):
-                log.error(context['drush_message'], extra=context)
-            elif context['type'] in ('warning'):
-                log.warning(context['drush_message'], extra=context)
-            elif context['type'] in ('ok', 'success'):
-                log.info(context['drush_message'], extra=context)
-            else:
-                log.debug(context['drush_message'], extra=context)
-        no_dupe.add(context['drush_message'])
-
-#TODO: Add more logging for better coverage
 class PantheonServer:
 
     def __init__(self):
-        # Ubuntu / Debian
-        if os.path.exists('/etc/debian_version'):
-            self.distro = 'ubuntu'
-            self.mysql = 'mysql'
-            self.owner = 'root'
-            self.web_group = 'www-data'
-            self.jenkins_group = 'nogroup'
-            self.tomcat_owner = 'tomcat6'
-            self.tomcat_version = '6'
-            self.webroot = '/var/www/'
-            self.ftproot = '/srv/ftp/pantheon/'
-            self.vhost_dir = '/etc/apache2/sites-available/'
-        # Centos
-        elif os.path.exists('/etc/redhat-release'):
-            self.distro = 'centos'
-            self.mysql = 'mysqld'
-            self.owner = 'root'
-            self.web_group = 'apache'
-            self.jenkins_group = 'jenkins'
-            self.tomcat_owner = 'tomcat'
-            self.tomcat_version = '5'
-            self.webroot = '/var/www/html/'
-            self.ftproot = '/var/ftp/pantheon/'
-            self.vhost_dir = '/etc/httpd/conf/vhosts/'
-        #global
+        self.web_group = 'www-data'
+        self.tomcat_owner = 'tomcat6'
+        self.tomcat_version = '6'
+        self.webroot = '/var/www/'
+        self.vhost_dir = '/etc/apache2/sites-available/'
         self.template_dir = get_template_dir()
 
     def get_hostname(self):
         return local('hostname').rstrip('\n')
 
-    def update_packages(self):
-        if (self.distro == "centos"):
-            local('yum clean all', capture=False)
-            local('yum -y update', capture=False)
-        else:
-            local('apt-get -y update', capture=False)
-            local('apt-get -y dist-upgrade', capture=False)
-
     def restart_services(self):
-        if self.distro == 'ubuntu':
-            local('/etc/init.d/apache2 restart')
-            local('/etc/init.d/memcached restart')
-            local('/etc/init.d/tomcat6 restart')
-            local('/etc/init.d/varnish restart')
-            local('/etc/init.d/mysql restart')
-        elif self.distro == 'centos':
-            local('/etc/init.d/httpd restart')
-            local('/etc/init.d/memcached restart')
-            local('/etc/init.d/tomcat5 restart')
-            local('/etc/init.d/varnish restart')
-            local('/etc/init.d/mysqld restart')
+        local('/etc/init.d/apache2 restart')
+        local('/etc/init.d/memcached restart')
+        local('/etc/init.d/tomcat6 restart')
+        local('/etc/init.d/varnish restart')
+        local('/etc/init.d/mysql restart')
 
     def setup_iptables(self, file):
         local('/sbin/iptables-restore < ' + file)
@@ -359,7 +241,6 @@ class PantheonServer:
         # Set Perms
         local('chown -R %s:%s %s' % ('jenkins', self.jenkins_group, jobdir))
 
-
     def get_vhost_file(self, project, environment):
         """Helper method that returns the full path to the vhost file for a
         particular project/environment.
@@ -370,35 +251,11 @@ class PantheonServer:
         filename = '%s_%s' % (project, environment)
         if environment == 'live':
             filename = '000_' + filename
-        if self.distro == 'ubuntu':
-            return '/etc/apache2/sites-available/%s' % filename
-        elif self.distro == 'centos':
-            return '/etc/httpd/conf/vhosts/%s' % filename
+        return '/etc/apache2/sites-available/%s' % filename
 
-    def get_ldap_group(self):
-        """Helper method to pull the ldap group we authorize.
-        Helpful in keeping filesystem permissions correct.
-
-        /etc/pantheon/ldapgroup is written as part of the configure_ldap job.
-
-        """
-        with open('/etc/pantheon/ldapgroup', 'r') as f:
-            return f.readline().rstrip("\n")
-
-    def set_ldap_group(self, require_group):
-        """Helper method to pull the ldap group we authorize.
-        Helpful in keeping filesystem permissions correct.
-
-        /etc/pantheon/ldapgroup is written as part of the configure_ldap job.
-
-        """
-        with open('/etc/pantheon/ldapgroup', 'w') as f:
-            f.write('%s' % require_group)
-
-#TODO: Add more logging for better coverage
 class PantheonArchive(object):
+
     def __init__(self, path):
-        self.log = logger.logging.getLogger('pantheon.pantheon.PantheonArchive')
         self.path = path
         self.filetype = self._get_archive_type()
         self.archive = self._open_archive()
@@ -422,15 +279,9 @@ class PantheonArchive(object):
 
         """
         if tarfile.is_tarfile(self.path):
-            self.log.info('Tar archive found.')
             return 'tar'
         elif zipfile.is_zipfile(self.path):
-            self.log.info('Zip archive found.')
             return 'zip'
-        else:
-            err = 'Error: Not a valid tar/zip archive.'
-            self.log.error(err)
-            postback.build_error(err)
 
     def _open_archive(self):
         """Return an opened archive file object.

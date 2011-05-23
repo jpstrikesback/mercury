@@ -18,9 +18,7 @@ def _drush_download(modules, destination):
     temp_dir = tempfile.mkdtemp()
     with cd(temp_dir):
         for module in modules:
-             with settings(warn_only=True):
-                 result = local('drush -by dl %s' % module)
-             pantheon.log_drush_backend(result)
+             local('drush -y dl %s' % module)
         local('mv * %s' % destination)
     local('rm -rf %s' % temp_dir)
 
@@ -28,7 +26,7 @@ class InstallTools(project.BuildTools):
 
     def __init__(self, project, version, **kw):
         """ Initialize generic installation object & helper functions. """
-        super(InstallTools, self).__init__()
+        super(InstallTools, self).__init__(project)
         self.working_dir = tempfile.mkdtemp()
         self.author = 'Jenkins User <jenkins@pantheon>'
         self.destination = os.path.join(self.server.webroot, self.project)

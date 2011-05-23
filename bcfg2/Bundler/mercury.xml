@@ -1,0 +1,11 @@
+<Bundle name='mercury'>
+  <Group name='ubuntu'>
+    <Path name='/etc/apt/sources.list.d/mercury.list'/>
+    <Path name='/etc/mercury/templates/iptables'/>
+    <Path name='/etc/mercury/templates/tuneables'/>
+    <Path name='/etc/motd.tail'/>
+    <Path name='/etc/network/if-pre-up.d/iptablesload'/>
+    <BoundPath type='directory' owner='root' group='root' perms='0750' name='/var/log/mercury'/>
+  </Group>
+</Bundle>
+

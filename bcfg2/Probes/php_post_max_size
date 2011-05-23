@@ -1,0 +1,13 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+RAM=`grep MemTotal /proc/meminfo | sed 's/[^0-9]*//g'`
+
+if [[ -n "$PHP_POST_MAX_SIZE" ]]; then
+   echo "$PHP_POST_MAX_SIZE"
+else
+    echo "8"
+fi
+

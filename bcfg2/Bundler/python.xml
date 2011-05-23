@@ -1,0 +1,24 @@
+<Bundle name='bcfg2'>
+  <Group name='lucid'>
+    <Package name='python-apt'/>
+    <Package name='python-configobj'/>
+    <Package name='python-crypto'/>
+    <Package name='python-dev'/>
+    <Package name='python-gamin'/>
+    <Package name='python-genshi'/>
+    <Package name='python-lxml'/>
+    <Package name='python-m2crypto'/>
+    <Package name='python-mysqldb'/>
+    <Package name='python-paramiko'/>
+    <Package name='python-pip'/>
+    <Package name='python-pkg-resources'/>
+    <Package name='python-setuptools'/>
+    <Package name='python-software-properties'/>
+    <Package name='python-support'/>
+
+    <!-- Misc Deps -->
+    <Package name='libc6-dev'/>
+    <Package name='manpages-dev'/>
+  </Group>
+</Bundle>
+

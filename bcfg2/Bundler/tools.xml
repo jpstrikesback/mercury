@@ -1,0 +1,9 @@
+<Bundle name ='tools'>
+  <Group name='lucid'>
+    <Package name='diff'/>
+    <Package name='gcc'/>
+    <Package name='git-core'/>
+    <Package name='patch'/>
+    <Package name='rsync'/>
+  </Group>
+</Bundle>

@@ -1,0 +1,7 @@
+<Bundle name='phpmyadmin'>
+  <Group name='ubuntu'>
+    <Package name='phpmyadmin'/>
+    <Path name='/etc/phpmyadmin/config.inc.php'/>
+    <Path name='/usr/local/share/robots-deny.txt'/>
+  </Group>
+</Bundle>

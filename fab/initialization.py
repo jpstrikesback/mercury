@@ -1,116 +1,72 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
 import os
 import tempfile
-
 from fabric.api import *
-
-import update
 from pantheon import pantheon
 
-def initialize(vps=None, bcfg2_host='config.getpantheon.com'):
+def initialize():
     '''Initialize the Pantheon system.'''
     server = pantheon.PantheonServer()
-    server.bcfg2_host = bcfg2_host
 
-    _initialize_fabric()
-    _initialize_root_certificate()
-    _initialize_package_manager(server)
-    _initialize_bcfg2(server)
-    _initialize_iptables(server)
+    _initialize_package_manager()
+    _initialize_bcfg2()
+    _initialize_iptables()
     _initialize_drush()
-    _initialize_solr(server)
-    _initialize_sudoers(server)
-    _initialize_acl(server)
-    _initialize_jenkins(server)
-    _initialize_apache(server)
+    _initialize_solr()
+    _initialize_sudoers()
+    _initialize_acl()
+    _initialize_jenkins()
+    _initialize_apache()
 
-def init():
-    '''Alias of "initialize"'''
-    initialize()
-
-def _initialize_fabric():
-    """Make symlink of /usr/bin/fab -> /usr/local/bin/fab.
-
-    This is because using pip to install fabric will install it to
-    /usr/local/bin but we want to maintain compatibility with existing
-    servers and jenkins jobs.
-
-    """
-    if not os.path.exists('/usr/bin/fab'):
-        local('ln -s /usr/local/bin/fab /usr/bin/fab')
-
-def _initialize_root_certificate():
-    """Install the Pantheon root certificate.
-
-    """
-    pantheon.configure_root_certificate('http://pki.getpantheon.com')
-
-def _initialize_package_manager(server):
+def _initialize_package_manager():
     """Setup package repos and version preferences.
 
     """
-    if server.distro == 'ubuntu':
-        with cd(server.template_dir):
-            local('cp apt.pantheon.list /etc/apt/sources.list.d/pantheon.list')
+    local('cp /opt/pantheon/fab/templates/apt.mercury.list /etc/apt/sources.list.d/mercury.list')
+    #TODO: is the below still necessary?
+    #local('apt-key add /opt/mercury/fab/templates/apt.ppakeys.txt')
+    local('echo \'APT::Install-Recommends "0";\' >>  /etc/apt/apt.conf')
+    local('apt-get -y update', capture=False)
+    local('apt-get -y dist-upgrade', capture=False)
 
-            local('cp apt.openssh.pin /etc/apt/preferences.d/openssh')
-            local('apt-key add apt.ppakeys.txt')
-        local('echo \'APT::Install-Recommends "0";\' >>  /etc/apt/apt.conf')
-
-    elif server.distro == 'centos':
-        local('rpm -Uvh http://dl.iuscommunity.org/pub/ius/stable/Redhat/' + \
-              '5/x86_64/ius-release-1.0-6.ius.el5.noarch.rpm')
-        local('rpm -Uvh http://yum.fourkitchens.com/pub/centos/' + \
-              '5/noarch/fourkitchens-release-5-6.noarch.rpm')
-        local('rpm --import http://pkg.jenkins-ci.org/redhat/jenkins-ci.org.key')
-        local('wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo')
-        local('yum -y install git17 --enablerepo=ius-testing')
-        arch = local('uname -m').rstrip('\n')
-        if (arch == "x86_64"):
-            exclude_arch = "*.i?86"
-        elif (arch == "i386" or arch == "i586" or arch == "i686"):
-            exclude_arch = "*.x86_64"
-        if exclude_arch:
-            local('echo "exclude=%s" >> /etc/yum.conf' % exclude_arch)
-
-    # Update package metadata and download packages.
-    server.update_packages()
-
-def _initialize_bcfg2(server):
+def _initialize_bcfg2():
     """Install bcfg2 client and run for the first time.
 
     """
-    if server.distro == 'ubuntu':
-        local('apt-get install -y gamin python-gamin python-genshi bcfg2')
-    elif server.distro == 'centos':
-        local('yum -y install bcfg2 gamin gamin-python python-genshi ' + \
-              'python-ssl python-lxml libxslt')
-    template = pantheon.get_template('bcfg2.conf')
-    bcfg2_conf = pantheon.build_template(template, {"bcfg2_host": server.bcfg2_host})
-    with open('/etc/bcfg2.conf', 'w') as f:
-        f.write(bcfg2_conf)
-
-    # We use our own key/certs.
+    local('apt-get install -y gamin python-gamin python-genshi bcfg2 bcfg2-server')
+    pantheon.copy_template(pantheon.get_template('bcfg2.conf'),
+                           '/etc/bcfg2.conf')
     local('rm -f /etc/bcfg2.key bcfg2.crt')
-    # Run bcfg2
+    local('openssl req -batch -x509 -nodes -subj "/C=US/ST=California/L=San Francisco/CN=localhost" -days 1000 -newkey rsa:2048 -keyout /etc/bcfg2.key -noout')
+    local('openssl req -batch -new  -subj "/C=US/ST=California/L=San Francisco/CN=localhost" -key /etc/bcfg2.key | openssl x509 -req -days 1000 -signkey /etc/bcfg2.key -out /etc/bcfg2.crt')
+    local('chmod 0600 /etc/bcfg2.key')
+    if os.path.isdir('/var/lib/bcfg2'):
+        os.system('rm -rf /var/lib/bcfg2')
+    local('ln -sf /opt/pantheon/bcfg2 /var/lib/')
+    pantheon.copy_template('clients.xml', '/var/lib/bcfg2/Metadata')
+    local('/etc/init.d/bcfg2-server start')
+
+    for i in range(600):
+        if _bcfg2_server_running():
+            break
+        time.sleep(10)
+    else:
+        print "Failed to start bcfg2-server"
+        sys.exit(1)
     local('/usr/sbin/bcfg2 -vqed', capture=False)
 
-def _initialize_iptables(server):
+def _initialize_iptables():
     """Create iptable rules from template.
 
     """
-    local('/sbin/iptables-restore < /etc/pantheon/templates/iptables')
-    if server.distro == 'centos':
-        local('cp /etc/pantheon/templates/iptables /etc/sysconfig/iptables')
-        local('chkconfig iptables on')
-        local('service iptables start')
-    else:
-        local('cp /etc/pantheon/templates/iptables /etc/iptables.rules')
+    local('/sbin/iptables-restore < /etc/mercury/templates/iptables')
+    local('cp /etc/mercury/templates/iptables /etc/iptables.rules')
 
 def _initialize_drush():
     """Install Drush and Drush-Make.
 
     """
+    #TODO: OSS: upgrade drush
+    #TODO: Use deb package
     local('[ ! -d drush ] || rm -rf drush')
     local('wget http://ftp.drupal.org/files/projects/drush-6.x-3.3.tar.gz')
     local('tar xvzf drush-6.x-3.3.tar.gz')
@@ -122,7 +78,7 @@ def _initialize_drush():
     local('ln -sf /opt/drush/drush /usr/local/bin/drush')
     local('drush dl drush_make')
 
-def _initialize_solr(server=pantheon.PantheonServer()):
+def _initialize_solr():
     """Download Apache Solr.
 
     """
@@ -132,48 +88,25 @@ def _initialize_solr(server=pantheon.PantheonServer()):
         local('tar xvzf apache-solr-1.4.1.tgz')
         local('mkdir -p /var/solr')
         local('mv apache-solr-1.4.1/dist/apache-solr-1.4.1.war /var/solr/solr.war')
-        local('chown -R ' + server.tomcat_owner + ':root /var/solr/')
+        local('chown -R tomcat6:root /var/solr/')
     local('rm -rf ' + temp_dir)
 
-def _initialize_sudoers(server):
-    """Create placeholder sudoers files. Used for custom sudoer setup.
-
-    """
-    local('touch /etc/sudoers.d/003_pantheon_extra')
-    local('chmod 0440 /etc/sudoers.d/003_pantheon_extra')
-
-def _initialize_acl(server):
+def _initialize_acl():
     """Allow the use of ACLs and ensure they remain after reboot.
 
     """
     local('sudo tune2fs -o acl /dev/sda1')
     local('sudo mount -o remount,acl /')
-    # For after restarts
     local('sudo sed -i "s/noatime /noatime,acl /g" /etc/fstab')
 
-def _initialize_jenkins(server):
-    """Add a Jenkins user and grant it access to the directory that will contain the certificate.
-
-    """
-    # Create the user if it doesn't exist:
-    with settings(warn_only=True):
-        local('adduser --system --home /var/lib/jenkins --no-create-home --ingroup nogroup --disabled-password --shell /bin/bash jenkins')
-
-    local('usermod -aG ssl-cert jenkins')
-    local('apt-get install -y jenkins')
-
-    # Grant it access:
-    #local('setfacl --recursive --no-mask --modify user:jenkins:rx /etc/pantheon')
-    #local('setfacl --recursive --modify default:user:jenkins:rx /etc/pantheon')
-
-    # Review the permissions:
-    #local('getfacl /etc/pantheon', capture=False)
-
-def _initialize_apache(server):
+def _initialize_apache():
     """Remove the default vhost and clear /var/www.
 
     """
-    if server.distro == 'ubuntu':
-        local('a2dissite default')
-        local('rm -f /etc/apache2/sites-available/default*')
-        local('rm -f /var/www/*')
+    local('a2dissite default')
+    local('rm -f /etc/apache2/sites-available/default*')
+    local('rm -f /var/www/*')
+
+def _bcfg2_server_running():
+    return bool(local('netstat -ln | grep 6789').strip())
+

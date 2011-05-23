@@ -1,0 +1,6 @@
+<Bundle name='postfix'>
+  <Group name='ubuntu'>
+    <Package name='postfix'/>
+    <BoundService name='postfix' status='on' mode='supervised' type='deb'/>
+  </Group>
+</Bundle>

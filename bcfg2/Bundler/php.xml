@@ -1,0 +1,40 @@
+<Bundle name='php'>
+  <Group name='ubuntu'>
+
+    <Package name='php5'/>
+    <Package name='php5-cli'/>
+    <Package name='php5-curl'/>
+    <Package name='php5-dev'/>
+    <Package name='php5-gd'/>
+    <Package name='php5-imagick'/>
+    <Package name='php5-mcrypt'/>
+    <Package name='php5-memcache'/>
+    <Package name='php5-mhash'/>
+    <Package name='php5-mysql'/>
+    <Package name='php5-sqlite'/>
+    <Package name='php5-xdebug'/>
+    <Package name='php5-xmlrpc'/>
+
+    <Package name='php-apc'/>
+    <Package name='php-pear'/>
+
+    <!-- Misc required libs -->
+    <Package name='autoconf2.13'/>
+    <Package name='automake1.4'/>
+    <Package name='libdb4.7'/>
+    <Package name='libmhash2'/>
+    <Package name='ttf-dejavu-core'/>
+
+    <!-- PHP 5.2 Pinning -->
+    <Path name='/etc/apt/preferences.d/php'/>
+
+    <!-- Configurations -->
+    <Path name='/etc/php5/apache2/php.ini'/>
+    <Path name='/etc/php5/cli/php.ini'/>
+    <Path name='/etc/php5/conf.d/apc.ini'/>
+
+    <!-- Restart Apache if this bundle changes -->
+    <BoundAction timing='post' when='modified' name='restart_apache2' command='/etc/init.d/apache2 restart' status='check'/>
+
+  </Group>
+</Bundle>

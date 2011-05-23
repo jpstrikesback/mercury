@@ -1,0 +1,17 @@
+#!/bin/bash
+if [[ -a /etc/mercury/server_tuneables ]]; then
+. /etc/mercury/server_tuneables
+fi
+
+if [[ -z "$INNODB_LOG_FILE_SIZE" ]]; then
+    #1073741824 is 1 GB in bytes
+    INNODB_LOG_FILE_SIZE="1073741824"
+fi
+
+if [[ -a /var/lib/mysql/ib_logfile0 && ( `stat -c '%s' /var/lib/mysql/ib_logfile0` -ne "$INNODB_LOG_FILE_SIZE" ) ]]; then
+    /etc/init.d/mysql stop >/dev/null
+    rm /var/lib/mysql/ib_logfile* >/dev/null
+    /etc/init.d/mysql start >/dev/null
+fi
+
+echo "$INNODB_LOG_FILE_SIZE"
