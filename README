@@ -1,3 +1,5 @@
+# THIS IS A WORK IN PROGRESS. THE INSTALLER WILL NOT CURRENTLY WORK.
+
 apt-get install git-core
-git clone git://github.com/pantheon-systems/mercury-oss.git /opt/mercury
+git clone git://github.com/aaronlevy/mercury.git /opt/mercury
 /opt/mercury/setup.sh
